@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as dat from 'lil-gui';
 import * as CANNON from 'cannon-es';
+import CannonDebugger from 'cannon-es-debugger';
 
 
 /**
@@ -142,32 +143,22 @@ console.log(cellsToTest)
 /**
  * Objects
  */
-// const object1 = new THREE.Mesh(
-//   new THREE.SphereGeometry(0.5, 16, 16),
-//   new THREE.MeshBasicMaterial({ color: '#ff0000' })
-// );
-// object1.position.x = -2;
+let played = 0
 
-// const object2 = new THREE.Mesh(
-//   new THREE.SphereGeometry(0.5, 16, 16),
-//   new THREE.MeshBasicMaterial({ color: '#ff0000' })
-// );
 
-// const object3 = new THREE.Mesh(
-//   new THREE.SphereGeometry(0.5, 16, 16),
-//   new THREE.MeshBasicMaterial({ color: '#ff0000' })
-// );
-// object3.position.x = 2;
 
-// const object4 = new THREE.Mesh(
-//   new THREE.SphereGeometry(0.5, 16, 16),
-//   new THREE.MeshBasicMaterial({ color: '#ff0000' })
-// );
-// object4.position.x = 4;
+const objectsToUpdate = []
 
-// scene.add(object1, object2, object3, object4);
+
 const world = new CANNON.World()
 world.gravity.set(0,-9.82,0)
+
+const cannonDebugger = new CannonDebugger(scene, world, {
+    // options...
+     color : 0x00ff00, scale : 1
+  })
+
+
 
 const defaultMaterial = new CANNON.Material('default')
 const defaultContactMaterial = new CANNON.ContactMaterial(
@@ -181,10 +172,12 @@ const defaultContactMaterial = new CANNON.ContactMaterial(
 world.addContactMaterial(defaultContactMaterial)
 
 const floorBody = new CANNON.Body()
+const floorShape = new CANNON.Plane(new CANNON.Vec3(10,10))
 floorBody.material = defaultContactMaterial
 floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(- 1, 0, 0), Math.PI * 0.5)
 floorBody.position.y = -1
 floorBody.mass = 0
+floorBody.addShape(floorShape)
 world.addBody(floorBody)
 
 const radius = 0.8
@@ -195,6 +188,7 @@ const createSphere = (radius, position) =>
     const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(radius, 20, 20),
         new THREE.MeshStandardMaterial({
+            color : played%2 != 0 ? '#ff0000' : '#00ff00',
             metalness: 0.3,
             roughness: 0.4
             // envMap: environmentMapTexture,
@@ -211,14 +205,23 @@ const createSphere = (radius, position) =>
 
     const body = new CANNON.Body({
         mass: 1,
-        position: new CANNON.Vec3(0, 3, 0),
+        // position: new CANNON.Vec3(0, 3, 0),
+        position: position,
         shape: shape,
         material: defaultMaterial
     })
-    body.position.copy(position)
+    body.addShape(shape)
+    // body.position.copy(mesh.position)
+    console.log('meshhhh',mesh.position)
+    console.log('bodyyyy', body.position)
+    mesh.position.copy(body.position)
     world.addBody(body)
+    objectsToUpdate.push({mesh, body})
+
+ 
 }
 
+console.log(world)
 //  createSphere(0.8, { x: 0, y: 3, z: 0 })
 // const rayOrigin = new THREE.Vector3(-3, 0, 0);
 // const rayDirection = new THREE.Vector3(10, 0, 0);
@@ -232,6 +235,12 @@ const createSphere = (radius, position) =>
 // const intersects = raycaster.intersectObjects([object1, object2, object3]);
 // console.log(intersects);
 
+const debugObject = {}
+debugObject.createSphere = () =>
+{
+    createSphere(radius, position)
+}
+scene.add(debugObject, 'createSphere')
 /**
  * Sizes
  */
@@ -282,19 +291,19 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.addEventListener('mousemove', onMouseMove);
-document.addEventListener('mousedown', onMouseDown)
-document.addEventListener('mouseup', onMouseUp)
+// document.addEventListener('mousedown', onMouseDown)
+// document.addEventListener('mouseup', onMouseUp)
 
-let clicked = false
+let clicked = 0
 function onMouseDown(event){
     console.log("mousedown")
     event.preventDefault()
-        clicked = true 
-        setTimeout(()=> {clicked = false}, '1000')
+        clicked += 1
+        setTimeout(()=> {clicked = 0}, '7')
     }
     function onMouseUp(event){
         console.log("mouseup")
-            clicked = false 
+            clicked = 0
         }
 function onMouseMove(event) {
   event.preventDefault();
@@ -309,6 +318,8 @@ function onMouseMove(event) {
  */
  const clock = new THREE.Clock();
  let oldElapsedTime = 0
+
+
 
  const tick = () =>
  {
@@ -332,20 +343,36 @@ cellsToTest
       // console.log(intersection)
     }
 
-    if(intersection[0] !== undefined && clicked === true){
+   window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mouseup', onMouseUp)
+    if(intersection[0] !== undefined && clicked === 1){
+
+        removeEventListener('mousedown', onMouseDown)
         let pos = new THREE.Vector3(intersection[0].object.position.x,intersection[0].object.position.y + 3,intersection[0].object.position.z )
         createSphere( radius,
             pos)
-
-            setTimeout(()=>{},'5000')
+            // console.log(body)
+            // setTimeout(()=>{},'100')
             // console.log(createSphere(),)
+            played += 1
+
+            if(clicked > 1 && clicked !== 0){
+                clicked = 0
+                setTimeout(()=>{},'1000')
+
+
+            }
             
         } else null
 
+    for (const object of objectsToUpdate){
+        object.mesh.position.copy(object.body.position)
+        object.mesh.quaternion.copy(object.body.quaternion)
+    }
         world.step(1 / 60, deltaTime, 3)
-
+// scene.updateMatrixWorld()
   // Update controls
-
+  cannonDebugger.update();
   // Render
   renderer.render(scene, camera);
 
