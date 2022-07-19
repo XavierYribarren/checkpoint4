@@ -42,7 +42,6 @@ const Grid = (world, position) => {
         // body.position.copy(mesh.position)
         // console.log('bodyyyy', body.position)
         world.addBody(planeBody);
-        console.log('yiiiii', planeBody);
         arr.push(planeBody)
       };
       
